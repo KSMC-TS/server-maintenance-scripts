@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-   
+   Runs the ServMaint.ps1 script on a list of servers provided via .txt file
 .DESCRIPTION
 
 .INPUTS
