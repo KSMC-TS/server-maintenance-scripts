@@ -1,4 +1,21 @@
+<#
+.SYNOPSIS
+   
+.DESCRIPTION
 
+.INPUTS
+  
+.OUTPUTS
+
+.NOTES
+  Version:        1.0
+  Author:         Fred Gottman
+  Creation Date:  04.05.2020
+  Purpose/Change: Initial version
+  
+.EXAMPLE
+  
+#>
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   

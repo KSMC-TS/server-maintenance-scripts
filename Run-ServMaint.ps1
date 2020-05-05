@@ -1,3 +1,22 @@
+<#
+.SYNOPSIS
+   
+.DESCRIPTION
+
+.INPUTS
+  
+.OUTPUTS
+
+.NOTES
+  Version:        1.0
+  Author:         Fred Gottman
+  Creation Date:  04.05.2020
+  Purpose/Change: Initial version
+  
+.EXAMPLE
+  
+#>
+
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $listpath = "C:\ksmc\scripts\servers.txt"
