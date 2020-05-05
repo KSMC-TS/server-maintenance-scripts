@@ -297,8 +297,8 @@ function Start-Mainenance{
         $AVSummary | Format-List
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
-        #Write-Output "Saving event logs to $logpath"
-        #Get-EventArchive | Out-Null
+        Write-Output "Saving event logs to $logpath"
+        Get-EventArchive | Out-Null
         Write-Output ("################################################################################################")
     ) *>&1 >> $maintlog
     Write-Output ("Maint Report saved to $maintlog")
