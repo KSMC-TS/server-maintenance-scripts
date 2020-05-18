@@ -16,6 +16,7 @@
 .EXAMPLE
   
 #>
+param([string]$savelogs='n')
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -297,9 +298,9 @@ function Get-AV {
 }
 
 #Data Gathering and Report Building
-function Start-Mainenance{
+function Start-Maintenance{
     [Cmdletbinding()]
-    param([string]$Computername)
+    param([string]$Computername,[string]$savelogs)
     $date = Get-Date
     $maintpath = "c:\ksmc\scripts\maint"
     $logpath = "$maintpath\logs"
@@ -312,7 +313,6 @@ function Start-Mainenance{
         New-Item -ItemType Directory -Path $logpath -Force
         Write-Verbose "($logpath) was created" -Verbose 
     }   
-    
     $(
         $PSVerSummary = Get-PSVersion
         $PSInfoVer = $PSVerSummary.PSVer.ToString()
@@ -375,16 +375,21 @@ function Start-Mainenance{
         Write-Output `n
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
-       # Write-Output "Saving event logs to $logpath"
-       # Get-EventArchive | Out-Null
+        if (($savelogs -eq "y") -or ($savelogs -eq "yes")) {
+            Write-Output "Saving event logs to $logpath"
+            Get-EventArchive | Out-Null
+        } elseif (($savelogs -eq "n") -or ($savelogs -eq "no")) {
+            Write-Output "Skipping logs"
+        } else {
+            Write-Output "Unknown response *$savelogs*, skipping logs"
+        }
+        
         Write-Output ("################################################################################################")
     ) *>&1 >> $maintlog
     Write-Output ("Maint Report saved to $maintlog")
 }
 
-
-
-Start-Mainenance
+Start-Maintenance -savelogs $savelogs
 
 
 ## addtional logs
@@ -399,4 +404,8 @@ Start-Mainenance
 ## check for FRS being enabled still
 ## fsmo and domain/forest level
 ## warranty check - skip if virt.
-## LT installation status, last check in
+## LT / SC installation status, last check in
+## list of listening ports and processes associated with them.
+## LT Integration 
+## pull script from github (self updating)
+## email html report to provided email list. SMTP Settings?
