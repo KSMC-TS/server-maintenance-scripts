@@ -214,7 +214,7 @@ function Get-AV {
         } elseif (($OSVersion -like "*Server*2016*") -OR ($OSVersion -like "*Server*2019*")) {
             $osversion = $OSVersion
             $AVResults = Get-MpComputerStatus | Select-Object -Property Antivirusenabled,AMServiceEnabled,AntispywareEnabled,BehaviorMonitorEnabled,IoavProtectionEnabled,NISEnabled,OnAccessProtectionEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated
-            $AVProduct = if ((Test-Path -Path 'C:\Program Files\*' -Include ('*Sophos*')) -eq "True") { "Sophos" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Trend*')) -eq "True") { "Trend" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Symantec*')) -eq "True") { "Symantec" } else {"Windows Defender or Unknown Product"}
+            $AVProduct = if ((Test-Path -Path 'C:\Program Files\*' -Include ('*Sophos*')) -eq "True") { "Sophos" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Trend*')) -eq "True") { "Trend" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Symantec*')) -eq "True") { "Symantec" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Bitdefender*')) -eq "True") { "Bitdefender" } else {"Windows Defender or Unknown Product"}
             $serveros = $OSVersion
             $ht = [ordered]@{}
             $ht.'Server OS' = $serveros
@@ -409,3 +409,4 @@ Start-Maintenance -savelogs $savelogs
 ## LT Integration 
 ## pull script from github (self updating)
 ## email html report to provided email list. SMTP Settings?
+## check for services running as "service accounts"
