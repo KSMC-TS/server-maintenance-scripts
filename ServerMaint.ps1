@@ -32,6 +32,22 @@ function Get-NetInfo{
         $netadapter | Select-Object Description,MACAddress,IPAddress
     } 
 }
+
+function Get-NetPortInfo{
+    param ($computername = $env:COMPUTERNAME,[string]$PSVer)
+    if ($PSVer -ge "5") {
+        $established = (Get-NetTCPConnection -State Established | Select-Object -Property LocalAddress, LocalPort, RemoteAddress, RemotePort, State, @{name='Process';expression={(Get-Process -Id $_.OwningProcess).Name}}, CreationTime | Sort-Object Process | Format-Table -AutoSize)
+        $listening = (Get-NetTCPConnection -State Listen | Select-Object -Property LocalAddress, LocalPort, RemoteAddress, RemotePort, State, @{name='Process';expression={(Get-Process -Id $_.OwningProcess).Name}}, CreationTime | Sort-Object Process | Format-Table -AutoSize)
+        $openports = (Get-NetTCPConnection -State Listen | Select-Object LocalPort | Sort-Object -Property LocalPort -Unique | Format-Table -HideTableHeaders)
+        [hashtable]$netportinfo = @{}
+        $netportinfo.established = $established
+        $netportinfo.listening = $listening
+        $netportinfo.openports = $openports
+    } else {
+
+    }
+    return $netportinfo
+}
 #Archives the App, Sec, And Sys, event logs and clears the logs 
 Function Get-EventArchive{            
     Param(
@@ -131,9 +147,15 @@ function Get-DiskInfo{
 function Get-AV {
     [CmdletBinding()]
     param ([string]$ComputerName = $env:COMPUTERNAME,[string]$PSVer)  
+<<<<<<< Updated upstream
     if ($PSVer -ge "$5") {
         [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
         if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+=======
+    if ($PSVer -ge "5") {
+        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $ComputerName).Caption
+        if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+>>>>>>> Stashed changes
             $AntiVirusProducts = Get-CimInstance -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -180,8 +202,13 @@ function Get-AV {
             $AVStatus = "Can't Detect OS Version - PS 5+"
         }
     } else {
+<<<<<<< Updated upstream
         [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
         if (($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+=======
+        [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $ComputerName).Caption
+        if (($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+>>>>>>> Stashed changes
             $AntiVirusProducts = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -266,7 +293,15 @@ function Start-Mainenance{
         $PSVerSummary = Get-PSVersion
         $PSMaj = $PSVerSummary.PSMaj
         $NetInfo = Get-NetInfo
+<<<<<<< Updated upstream
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj
+=======
+        $NetPortInfo = Get-NetPortInfo -PSVer $PSMaj
+        $netopenports = $netportinfo.openports
+        $netlistening = $netportinfo.listening
+        $netestablished = $netportinfo.established
+        $DiskSummary = Get-DiskInfo -PSVer $PSMaj -IsVirt $HWVM
+>>>>>>> Stashed changes
         $AVSummary = Get-AV -PSVer $PSMaj
         $CertSummary = Get-Certs
         $NTPSummary = Get-NTPConfig
@@ -289,8 +324,14 @@ function Start-Mainenance{
         Write-Output "Services Stopped:" $stoppedsvc.Count
         Write-Output "Automatic Services Not Running:"
         $autosvc | Format-Table
-        Write-Output ":::Network Adapters:::"
+        Write-Output ":::Network - Adapters:::"
         $NetInfo | Format-Table
+        Write-Output ":::Network - Listening Ports:::"
+        $netlistening
+        Write-Output ":::Network - Established Ports:::"
+        $netestablished
+        Write-Output ":::Network - Open Port List:::"
+        $netopenports
         Write-Output ":::Disk Info:::"
         $DiskSummary | Format-Table
         Write-Output ":::Anti-Virus Summary:::"

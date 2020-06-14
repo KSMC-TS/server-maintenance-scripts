@@ -15,10 +15,14 @@
   
 .EXAMPLE
   
+
+Feature Requests:
+pull script latest from github repo
 #>
 
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
+$scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
 $listpath = "C:\ksmc\scripts\servers.txt"
 $pathexists = Test-Path $reportspath
 if ($pathexists -eq $True) { 
