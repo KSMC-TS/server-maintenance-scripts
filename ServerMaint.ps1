@@ -16,6 +16,7 @@
 .EXAMPLE
   
 #>
+param([string]$savelogs='n')
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -24,13 +25,45 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     Break
 }
 
+function Get-HWInfo {
+    param ($computername = $env:COMPUTERNAME,[string]$PSVer)
+    if ($PSVer -ge "5") {
+        [hashtable]$HWInfo = @{}
+        $HWType = (Get-CimInstance -Class Win32_ComputerSystem -ComputerName $Computername | Select-Object Manufacturer,Model)
+        $Serial = (Get-CimInstance -Class Win32_bios -ComputerName $Computername | Select-Object SerialNumber | Select-Object -ExpandProperty SerialNumber)
+        $activation = (Get-CimInstance SoftwareLicensingProduct -ComputerName $env:computername -Filter "ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f'" |  Where-Object licensestatus -eq 1  | Select-Object Name, Description)
+        if ($activation) {$HWInfo.LicAct = "True"} else {$HWInfo.LicAct = "False"}
+        if ($HWType.Model -like "*Virt*") {$VM = "True"} else { $VM = "False"}
+        $HWInfo.VM = $VM
+        $HWInfo.Serial = $Serial
+        $HWInfo.LicName = $activation.Name
+        $HWInfo.LicDesc = $activation.Description
+        $HWInfo.Mfg = $HWType.Manufacturer
+        $HWinfo.Model = $HWType.Model
+    } else {
+        [hashtable]$HWInfo = @{}
+        $HWType = (Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computername | Select-Object Manufacturer,Model)
+        $Serial = (Get-WmiObject -Class Win32_bios -ComputerName $Computername | Select-Object SerialNumber)
+        $activation = (Get-WmiObject SoftwareLicensingProduct -ComputerName $env:computername -Filter "ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f'" |  Where-Object licensestatus -eq 1  | Select-Object Name, Description)
+        if ($activation) {$HWInfo.LicAct = "True"} else {$HWInfo.LicAct = "False"}
+        if ($HWType.Model -like "*Virt*") {$VM = "True"} else { $VM = "False"}
+        $HWInfo.VM = $VM
+        $HWInfo.Serial = $Serial
+        $HWInfo.LicName = $activation.Name
+        $HWInfo.LicDesc = $activation.Description
+        $HWInfo.Mfg = $HWType.Manufacturer
+        $HWinfo.Model = $HWType.Model
+    }
+    return $HWInfo
+
+}
 #Gets IP & MAC
 function Get-NetInfo{ 
     param ($computername = $env:COMPUTERNAME) 
-    $netadapters = ( Get-CimInstance -class "Win32_NetworkAdapterConfiguration" -computername $computername | Where-Object $_.IpEnabled -Match "True" )
+    $netadapters = ( Get-CimInstance -class "Win32_NetworkAdapterConfiguration" -computername $computername | Where-Object {$_.IPEnabled -Match "True"} )
     foreach ($netadapter in $netadapters) {  
-        $netadapter | Select-Object Description,MACAddress,IPAddress
-    } 
+        $netadapter | Select-Object -Property Description,MacAddress,IPAddress 
+    }  
 }
 
 function Get-NetPortInfo{
@@ -99,7 +132,12 @@ Function Get-NTPConfig {
 # Check expiring certs, today +1 month
 Function Get-Certs {
     $certs  = (Get-ChildItem cert:\LocalMachine -Recurse -EA SilentlyContinue | Where-Object { $_.NotAfter -gt (Get-Date) -and $_.NotAfter -lt (Get-Date).AddMonths(1) } | Select-Object -Property FriendlyName,NotAfter,Subject,Issuer,EnhancedKeyUsageList )
-    return $certs
+    if ($certs) { 
+        return $certs 
+    } else {
+        $certs = "No certs expiring in the next 30 days"
+        return $certs
+    }
 }
 
 #System Uptime            
@@ -108,7 +146,8 @@ Function Get-SrvUptime {
     if ($PSVer -ge "6") {
         $Uptime = Get-UpTime -Since
     } elseif ($PSVer -eq "5") {
-        $Uptime = Get-CimInstance Win32_OperatingSystem | Select-Object LastBootUpTime
+        $Uptime = Get-CimInstance Win32_OperatingSystem | Select-Object LastBootUpTime | Select-Object -ExpandProperty LastBootUpTime
+        
     } else {
         $System = Get-WmiObject win32_operatingsystem
         $Uptime =  $System.ConvertToDateTime($System.LastBootUpTime)
@@ -120,33 +159,48 @@ Function Get-SrvUptime {
 Function Get-PSVersion {
     param ([string]$ComputerName = $env:COMPUTERNAME)
     [hashtable]$ReturnPSVer = @{}
-    $PSVer = $psversiontable | Select-Object PSVersion,PSEdition
+    $PSVer = $psversiontable
+    if ($PSVer.PSEdition) {
+    $ReturnPSVer.PSEd = $PSVer.PSEdition
+    } else {
+    $ReturnPSVer.PSEd = "No Edition Listed"
+    }
     $PSVerMaj = $PSVer.PSVersion.Major
-    $ReturnPSVer.PSVer = $PSVer
+    $ReturnPSVer.PSVer = $PSVer.PSVersion
     $ReturnPSVer.PSMaj = $PSVerMaj
     Return $ReturnPSVer
 }
 
 #Grabs info for any local disk
-function Get-DiskInfo{
-    param ([string]$ComputerName = $env:COMPUTERNAME,[string]$PSVer)
-    if ($PSVer -ge "5") {
-        $Volume = Get-CimInstance -ComputerName $computerName Win32_Volume | Where-Object{$_.DriveType -eq 3 -and $_.DriveLetter -ne $Null}  
-        $DiskFrag = $Volume | Invoke-CimMethod -MethodName defraganalysis -Arguments @{defraganalysis=$volume} | Select-Object -property DefragRecommended, ReturnValue
-        $DiskInfo = Get-CimInstance -ComputerName $computerName Win32_LogicalDisk | Where-Object{$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Defrag Recommended?";e={"{0:n2}" -f $DiskFrag.DefragRecommended}}
-    
-    } else {
-        $Volume = GWMI -ComputerName $computerName Win32_Volume | Where-Object{$_.DriveType -eq 3 -and $_.DriveLetter -ne $Null}  
-        $DiskFrag = $Volume.DefragAnalysis().DefragAnalysis
-        $DiskInfo = GWMI -ComputerName $computerName Win32_LogicalDisk | Where-Object{$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
-    }
-    return $DiskInfo
+function Get-DiskInfo {
+param ([string]$ComputerName = $env:COMPUTERNAME,[string]$PSVer,[string]$IsVirt)
+if (($PSVer -ge "5") -and ($IsVirt -eq "True") ) {
+    $Volume = Get-CimInstance -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    [hashtable]$DiskFrag = @{}
+    $DiskFrag.DefragRecommended = "Virt-Skipping" 
+    $DiskInfo = Get-CimInstance -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Defrag Recommended?";e={"{0:n2}" -f $DiskFrag.DefragRecommended}}    
+} elseif (($PSVer -ge "5") -and ($IsVirt -eq "False") ) { 
+    $Volume = Get-CimInstance -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    $DiskFrag = ( $Volume | Invoke-CimMethod -MethodName defraganalysis -Arguments @{defraganalysis=$volume} | Select-Object -property DefragRecommended, ReturnValue ) 
+    $DiskInfo = Get-CimInstance -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Defrag Recommended?";e={"{0:n2}" -f $DiskFrag.DefragRecommended}}    
+} elseif (($PSVer -lt "5") -and ($IsVirt -eq "False") ) {
+    $Volume = GWMI -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    $DiskFrag = $Volume.DefragAnalysis().DefragAnalysis
+    $DiskInfo = GWMI -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
+} elseif (($PSVer -lt "5") -and ($IsVirt -eq "True") ) {
+    $Volume = GWMI -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    [hashtable]$DiskFrag = @{}
+    $DiskFrag.TotalPercentFragmentation = "Virt-Skipping" 
+    $DiskInfo = GWMI -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
+}
+return $DiskInfo
 }
 
 #Pull antivirus info from the registry
 function Get-AV {
     [CmdletBinding()]
     param ([string]$ComputerName = $env:COMPUTERNAME,[string]$PSVer)  
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     if ($PSVer -ge "$5") {
         [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
@@ -156,6 +210,11 @@ function Get-AV {
         [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $ComputerName).Caption
         if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
 >>>>>>> Stashed changes
+=======
+    if ($PSVer -ge "5") {
+        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
+        if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+>>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
             $AntiVirusProducts = Get-CimInstance -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -183,7 +242,7 @@ function Get-AV {
         } elseif (($OSVersion -like "*Server*2016*") -OR ($OSVersion -like "*Server*2019*")) {
             $osversion = $OSVersion
             $AVResults = Get-MpComputerStatus | Select-Object -Property Antivirusenabled,AMServiceEnabled,AntispywareEnabled,BehaviorMonitorEnabled,IoavProtectionEnabled,NISEnabled,OnAccessProtectionEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated
-            $AVProduct = if ((Test-Path -Path 'C:\Program Files\*' -Include ('*Sophos*')) -eq "True") { "Sophos" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Trend*')) -eq "True") { "Trend" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Symantec*')) -eq "True") { "Symantec" } else {"Unknown Product"}
+            $AVProduct = if ((Test-Path -Path 'C:\Program Files\*' -Include ('*Sophos*')) -eq "True") { "Sophos" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Trend*')) -eq "True") { "Trend" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Symantec*')) -eq "True") { "Symantec" } elseif ((Test-Path -Path 'C:\Program Files\*' -Include ('*Bitdefender*')) -eq "True") { "Bitdefender" } else {"Windows Defender or Unknown Product"}
             $serveros = $OSVersion
             $ht = [ordered]@{}
             $ht.'Server OS' = $serveros
@@ -198,10 +257,13 @@ function Get-AV {
             $ht.'Real Time Protection Enabled' = $AVResults.RealTimeProtectionEnabled
             $ht.'Anti-Virus Signature Last Updated' = $AVResults.AntivirusSignatureLastUpdated
             $AVStatus = New-Object -TypeName PSObject -Property $ht
+        } elseif (($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*")) {
+            $AVStatus = "Can't Detect - Server 2008/2012 unsupported"
         } else {
             $AVStatus = "Can't Detect OS Version - PS 5+"
         }
     } else {
+<<<<<<< HEAD
 <<<<<<< Updated upstream
         [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
         if (($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
@@ -209,6 +271,10 @@ function Get-AV {
         [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $ComputerName).Caption
         if (($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
 >>>>>>> Stashed changes
+=======
+        [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $Computer).Caption
+        if (($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
+>>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
             $AntiVirusProducts = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -259,6 +325,8 @@ function Get-AV {
                 $ht.'Real-time Protection Status' = $rtstatus
                 $AVStatus += New-Object -TypeName PSObject -Property $ht 
             }
+        } elseif (($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*")) {
+            $AVStatus = "Can't Detect - Server 2008/2012 unsupported"
         } else {
             $AVStatus = "Can't Detect OS Version - PS < 5"
         }
@@ -268,9 +336,9 @@ function Get-AV {
 }
 
 #Data Gathering and Report Building
-function Start-Mainenance{
+function Start-Maintenance{
     [Cmdletbinding()]
-    param([string]$Computername)
+    param([string]$Computername,[string]$savelogs)
     $date = Get-Date
     $maintpath = "c:\ksmc\scripts\maint"
     $logpath = "$maintpath\logs"
@@ -283,16 +351,26 @@ function Start-Mainenance{
         New-Item -ItemType Directory -Path $logpath -Force
         Write-Verbose "($logpath) was created" -Verbose 
     }   
-    
     $(
+        $PSVerSummary = Get-PSVersion
+        $PSInfoVer = $PSVerSummary.PSVer.ToString()
+        $PSInfoEd = $PSVerSummary.PSEd.ToString()
+        $PSMaj = $PSVerSummary.PSMaj
         $services = Get-Service
         $os = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
         $runningsvc = $services | Where-Object {$_.Status -eq "running"}
         $stoppedsvc = $services | Where-Object {$_.Status -eq "stopped"}
         $autosvc = $services | Where-Object {$_.StartType -eq "automatic" -and $_.Status -eq "stopped"} | Select-Object @{Name='Service Name'; Expression={$_.DisplayName}}, Status
-        $PSVerSummary = Get-PSVersion
-        $PSMaj = $PSVerSummary.PSMaj
+        $HWInfoSummary = Get-HWInfo -PSVer $PSMaj
+        $HWModel = $HWInfoSummary.Model
+        $HWVM = $HWInfoSummary.VM
+        $HWMFG = $HWInfoSummary.Mfg
+        $HWSN = $HWInfoSummary.Serial
+        $HWLICNAME = $HWInfoSummary.LicName
+        $HWLICDESC = $HWInfoSummary.LicDesc
+        $HWLICACT = $HWInfoSummary.LicAct
         $NetInfo = Get-NetInfo
+<<<<<<< HEAD
 <<<<<<< Updated upstream
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj
 =======
@@ -302,26 +380,40 @@ function Start-Mainenance{
         $netestablished = $netportinfo.established
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj -IsVirt $HWVM
 >>>>>>> Stashed changes
+=======
+        $DiskSummary = Get-DiskInfo -PSVer $PSMaj -IsVirt $HWVM
+>>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
         $AVSummary = Get-AV -PSVer $PSMaj
         $CertSummary = Get-Certs
         $NTPSummary = Get-NTPConfig
-        $SchTaskSummary = Get-SchTasks
-        $Uptime = Get-SrvUptime -PSVer $PSMaj
+        $SchTaskSummary = Get-SchTasks -PSVer $PSMaj
+        $lastboot = Get-SrvUptime -PSVer $PSMaj
         Write-Output "******Maintenance Report******"
         Write-Output "Current Date: $date"
         Write-Output "System Name:  $env:COMPUTERNAME"
+        Write-Output "Mfg: $HWMFG; Model: $HWModel"
+        Write-Output "Serial: $HWSN"
+        Write-Output "Activated: $HWLICACT"
+        Write-Output "Lic Name: $HWLICNAME"
+        Write-Output "Lic Desc: $HWLICDESC"
+        Write-Output "Virtual: $HWVM"
         Write-Output "OS: $os"
-        if ($uptime -lt (Get-Date).AddMonths(-1)) { Write-Output "System Uptime: $uptime ***NEEDS REBOOT***"  } Else {Write-Output "System Uptime: $uptime" }
+        Write-Output "PS Version: $PSInfoVer $PSInfoEd"
+        Write-Output "Last Boot: $lastboot"
+        $uptime = (Get-Date) - ($lastboot)
+        $UptimeDisplay = "Uptime: " + $Uptime.Days + " days, " + $Uptime.Hours + " hours, " + $Uptime.Minutes + " minutes"
+        if ($uptime.Days -ge "30") { Write-Output "$uptimedisplay ***NEEDS REBOOT***"  } Else {Write-Output "$uptimedisplay" }
         Write-Output `n
-        Write-Output "PS Version: " $PSVerSummary.PSVer
-        Write-Output `n
-        Write-Output "NTP Status:" 
+        Write-Output ":::NTP Status:::" 
         $NTPSummary 
+        Write-Output `n
         Write-Output ":::Certs expiring within 1 month:::"
         $CertSummary | Format-List
+        Write-Output `n
         Write-Output ":::Services Summary:::"
         Write-Output "Services Running:" $runningsvc.Count
         Write-Output "Services Stopped:" $stoppedsvc.Count
+        Write-Output `n
         Write-Output "Automatic Services Not Running:"
         $autosvc | Format-Table
         Write-Output ":::Network - Adapters:::"
@@ -336,18 +428,24 @@ function Start-Mainenance{
         $DiskSummary | Format-Table
         Write-Output ":::Anti-Virus Summary:::"
         $AVSummary | Format-List
+        Write-Output `n
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
-        Write-Output "Saving event logs to $logpath"
-        Get-EventArchive | Out-Null
+        if (($savelogs -eq "y") -or ($savelogs -eq "yes")) {
+            Write-Output "Saving event logs to $logpath"
+            Get-EventArchive | Out-Null
+        } elseif (($savelogs -eq "n") -or ($savelogs -eq "no")) {
+            Write-Output "Skipping logs"
+        } else {
+            Write-Output "Unknown response *$savelogs*, skipping logs"
+        }
+        
         Write-Output ("################################################################################################")
     ) *>&1 >> $maintlog
     Write-Output ("Maint Report saved to $maintlog")
 }
 
-
-
-Start-Mainenance
+Start-Maintenance -savelogs $savelogs
 
 
 ## addtional logs
@@ -361,23 +459,10 @@ Start-Mainenance
 ## DS, DNS, FRS logs
 ## check for FRS being enabled still
 ## fsmo and domain/forest level
-## activation status
-## phys or virt, if Phys, serial #, warranty check
-
-
-
-
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
+## warranty check - skip if virt.
+## LT / SC installation status, last check in
+## list of listening ports and processes associated with them.
+## LT Integration 
+## pull script from github (self updating)
+## email html report to provided email list. SMTP Settings?
+## check for services running as "service accounts"
