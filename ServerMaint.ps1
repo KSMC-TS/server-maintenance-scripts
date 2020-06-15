@@ -184,14 +184,14 @@ if (($PSVer -ge "5") -and ($IsVirt -eq "True") ) {
     $DiskFrag = ( $Volume | Invoke-CimMethod -MethodName defraganalysis -Arguments @{defraganalysis=$volume} | Select-Object -property DefragRecommended, ReturnValue ) 
     $DiskInfo = Get-CimInstance -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Defrag Recommended?";e={"{0:n2}" -f $DiskFrag.DefragRecommended}}    
 } elseif (($PSVer -lt "5") -and ($IsVirt -eq "False") ) {
-    $Volume = GWMI -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    $Volume = Get-WmiObject -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
     $DiskFrag = $Volume.DefragAnalysis().DefragAnalysis
-    $DiskInfo = GWMI -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
+    $DiskInfo = Get-WmiObject -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
 } elseif (($PSVer -lt "5") -and ($IsVirt -eq "True") ) {
-    $Volume = GWMI -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
+    $Volume = Get-WmiObject -ComputerName $computerName Win32_Volume | Where-Object {$_.DriveType -eq 3 -and $Null -ne $_.DriveLetter}  
     [hashtable]$DiskFrag = @{}
     $DiskFrag.TotalPercentFragmentation = "Virt-Skipping" 
-    $DiskInfo = GWMI -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
+    $DiskInfo = Get-WmiObject -ComputerName $computerName Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | Select-Object Name, @{n='Size (GB)';e={"{0:n2}" -f ($_.size/1gb)}}, @{n='FreeSpace (GB)';e={"{0:n2}" -f ($_.freespace/1gb)}}, @{n='PercentFree';e={"{0:n2}" -f ($_.freespace/$_.size*100)}}, @{n="Fragmentation";e={"{0:n2}" -f $DiskFrag.TotalPercentFragmentation}}
 }
 return $DiskInfo
 }
@@ -200,21 +200,9 @@ return $DiskInfo
 function Get-AV {
     [CmdletBinding()]
     param ([string]$ComputerName = $env:COMPUTERNAME,[string]$PSVer)  
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-    if ($PSVer -ge "$5") {
-        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
-        if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
-=======
     if ($PSVer -ge "5") {
-        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $ComputerName).Caption
+        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computername).Caption
         if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
->>>>>>> Stashed changes
-=======
-    if ($PSVer -ge "5") {
-        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
-        if (($OSVersion -like "*Windows 10*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
->>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
             $AntiVirusProducts = Get-CimInstance -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -263,18 +251,8 @@ function Get-AV {
             $AVStatus = "Can't Detect OS Version - PS 5+"
         }
     } else {
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-        [string]$OSVersion = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
-        if (($OSVersion -like "*Server*2012*") -OR ($OSVersion -like "*Server*2008*") -OR ($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
-=======
-        [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $ComputerName).Caption
+        [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $Computername).Caption
         if (($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
->>>>>>> Stashed changes
-=======
-        [string]$OSVersion = (Get-WmiObject win32_operatingsystem -computername $Computer).Caption
-        if (($OSVersion -like "*Windows 7*") -OR ($OSVersion -like "*Windows 8*")) {
->>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
             $AntiVirusProducts = Get-WmiObject -Namespace "root\SecurityCenter2" -Class AntiVirusProduct  -ComputerName $computername
             $AvStatus = @()
             foreach($AntiVirusProduct in $AntiVirusProducts){
@@ -370,19 +348,13 @@ function Start-Maintenance{
         $HWLICDESC = $HWInfoSummary.LicDesc
         $HWLICACT = $HWInfoSummary.LicAct
         $NetInfo = Get-NetInfo
-<<<<<<< HEAD
-<<<<<<< Updated upstream
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj
-=======
         $NetPortInfo = Get-NetPortInfo -PSVer $PSMaj
         $netopenports = $netportinfo.openports
         $netlistening = $netportinfo.listening
         $netestablished = $netportinfo.established
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj -IsVirt $HWVM
->>>>>>> Stashed changes
-=======
         $DiskSummary = Get-DiskInfo -PSVer $PSMaj -IsVirt $HWVM
->>>>>>> 6f940e67892eaea5699b2a6fde160d675ce44805
         $AVSummary = Get-AV -PSVer $PSMaj
         $CertSummary = Get-Certs
         $NTPSummary = Get-NTPConfig

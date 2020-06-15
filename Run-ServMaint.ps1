@@ -17,12 +17,23 @@
 .EXAMPLE
   
 #>
-
+param ([string]$emailaddress=(Read-Host "Enter your email"),[string]$smtpserver="")
+$fromaddress = "$emailaddress" 
+$toaddress = "$emailaddress" 
+#$bccaddress = ""
+#$CCaddress = ""
+$Subject = "Client Maintenance Report - $date" 
+$body = "Client Maintenance Report Attached"
+$attachment = "$reportspath\maintreport-all-$date.log" 
+$smtpserver = ""
+$credential = Get-Credential -UserName $emailaddress -Message "Please enter your password"
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
 $listpath = "C:\ksmc\scripts\servers.txt"
-if ((Test-Path $scriptpath) -eq $True) {Remove-Item $scriptpath -force}
+
+Write-Host "Recreating Script from Latest"
+if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
 Invoke-WebRequest $scripturl -OutFile $scriptpath
 $savelogs = Read-Host "Do you want to archive event logs? (y or n)"
 [string]$scriptlastwrite = Get-ChildItem $scriptpath | Select-Object LastWriteTime
@@ -64,5 +75,10 @@ foreach ($server in $servers) {
     [string]$date = (Get-Date -Format "MMddyyyy")
     $maintlog = (Get-ChildItem "\\$server\c$\ksmc\scripts\maint\maint*$date*.log" )
     Write-Host "Copying Report $maintlog"
-    Copy-Item $maintlog $reportspath -Force
+    Copy-Item $maintlog $reportspath -Force 
 }
+
+Get-Content $reportspath\*.log | Set-Content $reportspath\maintreport-all-$date.log 
+
+#Write-Host "Sending Email"
+#Send-MailMessage -SmtpServer $smtpServer -From $fromaddress -To $toaddress -Subject $Subject -Body $body -Attachments $attachment #-UseSsl -Port 587 -Credential $credential
