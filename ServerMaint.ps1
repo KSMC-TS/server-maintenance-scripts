@@ -77,7 +77,7 @@ function Get-NetPortInfo{
         $netportinfo.listening = $listening
         $netportinfo.openports = $openports
     } else {
-
+        $netportinfo = "Not Yet Supported (PSVer: $psver)"
     }
     return $netportinfo
 }
