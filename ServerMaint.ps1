@@ -313,6 +313,24 @@ function Get-AV {
     Return $AVStatus
 }
 
+#Get Installed Server Roles
+function Get-Roles{
+    $roles = (Get-WindowsFeature | Where-Object {$_.InstallState -eq 'Installed' })
+    if ($roles | Where-Object {$_.name -eq 'AD-Domain-Services'}) { $adrole = "Installed" } else { $adrole = "Not Installed" }
+    if ($roles | Where-Object {$_.name -eq 'DHCP'}) { $dhcprole = "Installed" } else { $dhcprole = "Not Installed" }
+    if ($roles | Where-Object {$_.name -eq 'DNS'}) { $dnsrole = "Installed" } else { $dnsrole = "Not Installed" }
+    if ($roles | Where-Object {$_.name -eq 'Print-Server'}) { $printrole = "Installed" } else { $printrole = "Not Installed" }
+    if ($roles | Where-Object {$_.name -eq 'SMTP-Server'}) { $smtprole = "Installed" } else { $smtprole = "Not Installed" }
+    [hashtable]$serverroles = @{} 
+    $serverroles.ad = $adrole
+    $serverroles.dhcp = $dhcprole
+    $serverroles.dns = $dnsrole
+    $serverroles.print = $printrole
+    $serverroles.smtp = $smtprole
+    $serverroles.roles = $roles.Name
+    Return $serverroles
+}
+
 #Data Gathering and Report Building
 function Start-Maintenance{
     [Cmdletbinding()]
@@ -336,6 +354,7 @@ function Start-Maintenance{
         $PSMaj = $PSVerSummary.PSMaj
         $services = Get-Service
         $os = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
+        $if ($os -like "Server") { $roles = Get-Roles } else { $roles = "not server OS, skipping roles"}
         $runningsvc = $services | Where-Object {$_.Status -eq "running"}
         $stoppedsvc = $services | Where-Object {$_.Status -eq "stopped"}
         $autosvc = $services | Where-Object {$_.StartType -eq "automatic" -and $_.Status -eq "stopped"} | Select-Object @{Name='Service Name'; Expression={$_.DisplayName}}, Status
@@ -375,6 +394,9 @@ function Start-Maintenance{
         $uptime = (Get-Date) - ($lastboot)
         $UptimeDisplay = "Uptime: " + $Uptime.Days + " days, " + $Uptime.Hours + " hours, " + $Uptime.Minutes + " minutes"
         if ($uptime.Days -ge "30") { Write-Output "$uptimedisplay ***NEEDS REBOOT***"  } Else {Write-Output "$uptimedisplay" }
+        Write-Output `n
+        Write-Output ":::Server Roles:::"
+        $roles.roles
         Write-Output `n
         Write-Output ":::NTP Status:::" 
         $NTPSummary 
@@ -433,7 +455,6 @@ Start-Maintenance -savelogs $savelogs
 ## fsmo and domain/forest level
 ## warranty check - skip if virt.
 ## LT / SC installation status, last check in
-## list of listening ports and processes associated with them.
 ## LT Integration 
 ## pull script from github (self updating)
 ## email html report to provided email list. SMTP Settings?
