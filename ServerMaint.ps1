@@ -25,6 +25,20 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     Break
 }
 
+function AnalyzeLogs {
+    param([string]$PSVer)
+    $scriptfolder = "c:\github\server-maintenance-scripts\AnalyzeLogs"
+    $script = "$scriptfolder\FrequencyLog.ps1 -IncludeSecurity"
+    Remove-Item $scriptfolder\*.htm -Force
+    Remove-Item $scriptfolder\*.log -Force
+    Remove-Item $scriptfolder\*.json -Force
+    [scriptblock]$command = "powershell.exe -command '& $script'"
+    Invoke-Command -scriptblock ([scriptblock]::Create($command))
+
+    
+
+
+}
 function Get-HWInfo {
     param ($computername = $env:COMPUTERNAME,[string]$PSVer)
     if ($PSVer -ge "5") {
@@ -346,7 +360,8 @@ function Start-Maintenance{
     } else { 
         New-Item -ItemType Directory -Path $logpath -Force
         Write-Verbose "($logpath) was created" -Verbose 
-    }   
+    } 
+  
     $(
         $PSVerSummary = Get-PSVersion
         $PSInfoVer = $PSVerSummary.PSVer.ToString()
@@ -354,7 +369,14 @@ function Start-Maintenance{
         $PSMaj = $PSVerSummary.PSMaj
         $services = Get-Service
         $os = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
-        $if ($os -like "Server") { $roles = Get-Roles } else { $roles = "not server OS, skipping roles"}
+        if ($os -like "*Server*") { 
+            $roles = Get-Roles
+            if ($roles.ad -eq "Installed") {
+                ## RUN AD MAINT ##
+            }
+        } else { 
+            $roles = "not server OS, skipping roles"
+        }
         $runningsvc = $services | Where-Object {$_.Status -eq "running"}
         $stoppedsvc = $services | Where-Object {$_.Status -eq "stopped"}
         $autosvc = $services | Where-Object {$_.StartType -eq "automatic" -and $_.Status -eq "stopped"} | Select-Object @{Name='Service Name'; Expression={$_.DisplayName}}, Status
@@ -446,13 +468,7 @@ Start-Maintenance -savelogs $savelogs
 ## device manager
 ## patch status
 ## sys info
-## DC Server Maint
-## dcdiag
-## pull users, last logon time
-## ad / repl logs
-## DS, DNS, FRS logs
-## check for FRS being enabled still
-## fsmo and domain/forest level
+
 ## warranty check - skip if virt.
 ## LT / SC installation status, last check in
 ## LT Integration 
