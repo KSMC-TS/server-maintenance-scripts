@@ -17,16 +17,75 @@
 .EXAMPLE
   
 #>
-param ([string]$emailaddress=(Read-Host "Enter your email"),[string]$smtpserver="")
-$fromaddress = "$emailaddress" 
-$toaddress = "$emailaddress" 
+#param ([string]$emailaddress=(Read-Host "Enter your email"),[string]$smtpserver="")
+#$fromaddress = "$emailaddress" 
+#$toaddress = "$emailaddress" 
 #$bccaddress = ""
 #$CCaddress = ""
-$Subject = "Client Maintenance Report - $date" 
-$body = "Client Maintenance Report Attached"
-$attachment = "$reportspath\maintreport-all-$date.log" 
-$smtpserver = ""
-$credential = Get-Credential -UserName $emailaddress -Message "Please enter your password"
+#$Subject = "Client Maintenance Report - $date" 
+#$body = "Client Maintenance Report Attached"
+#$attachment = "$reportspath\maintreport-all-$date.log" 
+#$smtpserver = ""
+#$credential = Get-Credential -UserName $emailaddress -Message "Please enter your password"
+<#
+function DownloadFilesFromRepo {
+    Param(
+        [string]$Owner,
+        [string]$Repository,
+        [string]$Path,
+        [string]$DestinationPath
+        )
+    
+        $baseUri = "https://api.github.com/"
+        $args = "repos/$Owner/$Repository/contents/$Path"
+        $wr = Invoke-WebRequest -Uri $($baseuri+$args)
+        $objects = $wr.Content | ConvertFrom-Json
+        $files = $objects | where {$_.type -eq "file"} | Select -exp download_url
+        $directories = $objects | where {$_.type -eq "dir"}
+        $directories | ForEach-Object { 
+            DownloadFilesFromRepo -Owner $Owner -Repository $Repository -Path $_.path -DestinationPath $($DestinationPath+$_.name)
+        }
+        if (-not (Test-Path $DestinationPath)) {
+            # Destination path does not exist, let's create it
+            try {
+                New-Item -Path $DestinationPath -ItemType Directory -ErrorAction Stop
+            } catch {
+                throw "Could not create path '$DestinationPath'!"
+            }
+        }
+        foreach ($file in $files) {
+            $fileDestination = Join-Path $DestinationPath (Split-Path $file -Leaf)
+            try {
+                Invoke-WebRequest -Uri $file -OutFile $fileDestination -ErrorAction Stop -Verbose
+                "Grabbed '$($file)' to '$fileDestination'"
+            } catch {
+                throw "Unable to download '$($file.path)'"
+            }
+        }
+    }
+
+#>
+
+    function AnalyzeLogs {
+        param($server)
+        $scriptfolder = "c:\ksmc\scripts\maint\AnalyzeLogs"
+
+        #if (!(Test-Path $scriptfolder)) {
+        #    New-Item -ItemType Directory -Path $scriptfolder
+        #
+        #}
+
+        $script = "$scriptfolder\FrequencyLog.ps1 -IncludeSecurity -computerp $server"
+        [scriptblock]$command = "powershell.exe -command '& $script'"
+        Invoke-Command -scriptblock ([scriptblock]::Create($command))
+    
+    }
+
+
+
+
+
+
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
@@ -70,12 +129,15 @@ foreach ($server in $servers) {
         Set-Location "c:\ksmc\scripts"
         .\ServerMaint.ps1 -SaveLogs $using:savelogs
     }
+    Write-Host "Analyzing Logs on $server"
+    AnalyzeLogs -server $server
     Write-Host "Running Maintenance on $Server"
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
     [string]$date = (Get-Date -Format "MMddyyyy")
     $maintlog = (Get-ChildItem "\\$server\c$\ksmc\scripts\maint\maint*$date*.log" )
     Write-Host "Copying Report $maintlog"
     Copy-Item $maintlog $reportspath -Force 
+
 }
 
 Get-Content $reportspath\*.log | Set-Content $reportspath\maintreport-all-$date.log 
