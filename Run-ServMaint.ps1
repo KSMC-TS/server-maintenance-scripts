@@ -576,6 +576,6 @@ Start-Maintenance
 ## patch status
 ## sys info - ?
 ## warranty check - skip if virt.
-## LT / SC installation status, last check in
+## LT / SC installation status, last check-in
 ## LT Integration 
 ## check for services running as "service accounts"
