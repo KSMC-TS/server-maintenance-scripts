@@ -1,6 +1,6 @@
 param ()
 
-function Get-ForsetInfo {
+function Get-ForestInfo {
     $Forest = [system.directoryservices.activedirectory.Forest]::GetCurrentForest() 
     "Forest Name:                " + $Forest.Name 
     "  Forest Functional Level:  " + $Forest.ForestMode 
@@ -147,7 +147,7 @@ function Start-ADMaint{
         
         Write-Output ("################################################################################################")
     ) *>&1 >> $maintlog
-    Write-Output ("Maint Report saved to $maintlog") 
+    Write-Verbose ("AD Maint Report saved to $maintlog") 
     
 }
 
@@ -158,3 +158,5 @@ Start-ADMaint
 ## ad / repl logs
 ## DS, DNS, FRS logs
 ## dns FSMO holders
+
+## fix report output

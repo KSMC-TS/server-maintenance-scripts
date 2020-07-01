@@ -89,3 +89,7 @@ foreach ($server in $servers) {
 Write-Host "Creating Master Report..."
 Get-Content $reportspath\*maint*$date*.log | Set-Content $reportspath\maintreport-all-$date.log
 Write-Host "Script Complete"
+
+
+
+## detect PS v7 and runas
