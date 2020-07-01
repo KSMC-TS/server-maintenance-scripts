@@ -429,8 +429,7 @@ function Start-ADMaint {
     if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
     Invoke-WebRequest $scripturl -OutFile $scriptpath
     $remoteCommand = { 
-        Set-Location "c:\ksmc\scripts"
-        .\ADMaint.ps1
+        powershell.exe -Command "& c:\ksmc\scripts\ADMaint.ps1"
     }
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
     $admaint = "AD Maintenance is Complete"
@@ -550,8 +549,9 @@ function Start-Maintenance{
         Write-Output `n
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
-        Write-Output "Saving event logs to $logpath"
+        Write-Output "Saving event logs to $logpath, sleeping for 30s"
         Get-EventArchive | Out-Null
+        Start-Sleep -Seconds 30
         Write-Output `n
         Write-Output ":::Failed Logons Summary:::"
         $failedlogons | Select-Object -First 50 | Format-Table
@@ -576,6 +576,6 @@ Start-Maintenance
 ## patch status
 ## sys info - ?
 ## warranty check - skip if virt.
-## LT / SC installation status, last check in
+## LT / SC installation status, last check-in
 ## LT Integration 
 ## check for services running as "service accounts"
