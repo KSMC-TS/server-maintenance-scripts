@@ -1,8 +1,5 @@
 param ()
 
-Import-Module Activedirectory
-
-
 function Get-ForsetInfo {
     $Forest = [system.directoryservices.activedirectory.Forest]::GetCurrentForest() 
     "Forest Name:                " + $Forest.Name 
@@ -104,6 +101,59 @@ function Get-DCdiag {
     $dcdiag = dcdiag /q
     Return $dcdiag
 }
+
+
+function Start-ADMaint{
+    [Cmdletbinding()]
+    param([string]$Computername)
+    Import-Module Activedirectory
+    $date = Get-Date
+    $maintpath = "c:\ksmc\scripts\maint"
+    $logpath = "$maintpath\logs"
+    $maintfile = "AD-maintenance_report-$env:USERDOMAIN-"+(Get-Date -Format "MMddyyyy")+".log"
+    $maintlog = "$maintpath\$maintfile"
+    $pathexists = Test-Path $logpath
+    if ($pathexists -eq $True) { 
+        Write-Verbose "($logpath) already exists" -Verbose 
+    } else { 
+        New-Item -ItemType Directory -Path $logpath -Force
+        Write-Verbose "($logpath) was created" -Verbose 
+    } 
+  
+    $(
+        $forestinfo = Get-ForestInfo
+        $frsstate = Get-FRSState
+        $useraudit = Get-Users
+        $compaudit = Get-Computers
+        $replstatus = Get-ReplStatus
+        $dcdiag = Get-DCDiag
+
+        Write-Output "******AD Maintenance Report******"
+        Write-Output "Current Date: $date"
+        Write-Output "*** Forest / Domains info ***"
+        $forestinfo
+        Write-Output "*** Replication Status ***"
+        $repstatus.repsum
+        Write-Output "*** FRS Status ***"
+        $frsstate
+        Write-Output "*** User Audit ***"
+        $useraudit
+        Write-Output "*** Computer Audit ***"
+        $compaudit
+        Write-Output "*** DCDiag ***"
+        $dcdiag
+
+        
+        
+        Write-Output ("################################################################################################")
+    ) *>&1 >> $maintlog
+    Write-Output ("Maint Report saved to $maintlog") 
+    
+}
+
+Start-ADMaint
+
+
 
 ## ad / repl logs
 ## DS, DNS, FRS logs

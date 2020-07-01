@@ -1,33 +1,4 @@
 <#
-.SYNOPSIS
-   Runs the ServMaint.ps1 script on a list of servers provided via .txt file
-.DESCRIPTION
-
-.INPUTS
-  
-.OUTPUTS
-
-.NOTES
-  Version:        1.0
-  Author:         Fred Gottman
-  Creation Date:  04.05.2020
-  Purpose/Change: Initial version
-  
-  ***** Run-ServMaint Compatible with PS 3.0+ ***********
-.EXAMPLE
-  
-#>
-#param ([string]$emailaddress=(Read-Host "Enter your email"),[string]$smtpserver="")
-#$fromaddress = "$emailaddress" 
-#$toaddress = "$emailaddress" 
-#$bccaddress = ""
-#$CCaddress = ""
-#$Subject = "Client Maintenance Report - $date" 
-#$body = "Client Maintenance Report Attached"
-#$attachment = "$reportspath\maintreport-all-$date.log" 
-#$smtpserver = ""
-#$credential = Get-Credential -UserName $emailaddress -Message "Please enter your password"
-<#
 function DownloadFilesFromRepo {
     Param(
         [string]$Owner,
@@ -65,27 +36,6 @@ function DownloadFilesFromRepo {
     }
 
 #>
-
-    function AnalyzeLogs {
-        param($server)
-        $scriptfolder = "c:\ksmc\scripts\maint\AnalyzeLogs"
-
-        #if (!(Test-Path $scriptfolder)) {
-        #    New-Item -ItemType Directory -Path $scriptfolder
-        #
-        #}
-
-        $script = "$scriptfolder\FrequencyLog.ps1 -IncludeSecurity -computerp $server"
-        [scriptblock]$command = "powershell.exe -command '& $script'"
-        Invoke-Command -scriptblock ([scriptblock]::Create($command))
-    
-    }
-
-
-
-
-
-
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
@@ -94,7 +44,6 @@ $listpath = "C:\ksmc\scripts\servers.txt"
 Write-Host "Recreating Script from Latest"
 if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
 Invoke-WebRequest $scripturl -OutFile $scriptpath
-$savelogs = Read-Host "Do you want to archive event logs? (y or n)"
 [string]$scriptlastwrite = Get-ChildItem $scriptpath | Select-Object LastWriteTime
 $pathexists = Test-Path $reportspath
 if ($pathexists -eq $True) { 
@@ -127,20 +76,17 @@ foreach ($server in $servers) {
     }    
     $remoteCommand = { 
         Set-Location "c:\ksmc\scripts"
-        .\ServerMaint.ps1 -SaveLogs $using:savelogs
+        .\ServerMaint.ps1
     }
-    Write-Host "Analyzing Logs on $server"
-    AnalyzeLogs -server $server
     Write-Host "Running Maintenance on $Server"
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
     [string]$date = (Get-Date -Format "MMddyyyy")
-    $maintlog = (Get-ChildItem "\\$server\c$\ksmc\scripts\maint\maint*$date*.log" )
+    $maintlog = (Get-ChildItem "\\$server\c$\ksmc\scripts\maint\*maint*$date*.log" )
     Write-Host "Copying Report $maintlog"
     Copy-Item $maintlog $reportspath -Force 
 
 }
 
-Get-Content $reportspath\*.log | Set-Content $reportspath\maintreport-all-$date.log 
-
-#Write-Host "Sending Email"
-#Send-MailMessage -SmtpServer $smtpServer -From $fromaddress -To $toaddress -Subject $Subject -Body $body -Attachments $attachment #-UseSsl -Port 587 -Credential $credential
+Write-Host "Creating Master Report..."
+Get-Content $reportspath\*maint*$date*.log | Set-Content $reportspath\maintreport-all-$date.log
+Write-Host "Script Complete"

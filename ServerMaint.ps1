@@ -1,22 +1,4 @@
-<#
-.SYNOPSIS
-   
-.DESCRIPTION
-
-.INPUTS
-  
-.OUTPUTS
-
-.NOTES
-  Version:        1.0
-  Author:         Fred Gottman
-  Creation Date:  04.05.2020
-  Purpose/Change: Initial version
-  
-.EXAMPLE
-  
-#>
-param([string]$savelogs='n')
+param()
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -25,20 +7,6 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     Break
 }
 
-function AnalyzeLogs {
-    param([string]$PSVer)
-    $scriptfolder = "c:\github\server-maintenance-scripts\AnalyzeLogs"
-    $script = "$scriptfolder\FrequencyLog.ps1 -IncludeSecurity"
-    Remove-Item $scriptfolder\*.htm -Force
-    Remove-Item $scriptfolder\*.log -Force
-    Remove-Item $scriptfolder\*.json -Force
-    [scriptblock]$command = "powershell.exe -command '& $script'"
-    Invoke-Command -scriptblock ([scriptblock]::Create($command))
-
-    
-
-
-}
 function Get-HWInfo {
     param ($computername = $env:COMPUTERNAME,[string]$PSVer)
     if ($PSVer -ge "5") {
@@ -106,12 +74,118 @@ Function Get-EventArchive{
         If(!( Test-Path $BackupFolder )){ 
             New-Item $BackupFolder -Type Directory
         }
-        $eventlog="$BackupFolder\$log" + "-" + (Get-Date -Format "MMddyyyy-HHmmss") + ".evt"
+        $eventlog="$BackupFolder\$log" + "-" + (Get-Date -Format "MMddyyyy") + ".evt"
         (Get-CimInstance win32_nteventlogfile -ComputerName $computername | Where-Object {$_.logfilename -eq "$log"}) | Invoke-CimMethod -MethodName backupeventlog -Arguments @{ArchiveFileName=$eventlog}            
         [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog("$log")            
     }          
 }
 
+function Get-FailedLogons {
+    param (
+        $date = (Get-Date -format "MMddyyyy"),
+        $loglocation = "c:\ksmc\scripts\maint\logs",
+        $secfile = "security-$date.evt"
+    )
+    function Get-FailureReason {
+        Param($FailureReason)
+          switch ($FailureReason) {
+            '0xC0000064' {"Account does not exist"; break;}
+            '0xC000006A' {"Incorrect password"; break;}
+            '0xC000006D' {"Incorrect username or password"; break;}
+            '0xC000006E' {"Account restriction"; break;}
+            '0xC000006F' {"Invalid logon hours"; break;}
+            '0xC000015B' {"Logon type not granted"; break;}
+            '0xc0000070' {"Invalid Workstation"; break;}
+            '0xC0000071' {"Password expired"; break;}
+            '0xC0000072' {"Account disabled"; break;}
+            '0xC0000133' {"Time difference at DC"; break;}
+            '0xC0000193' {"Account expired"; break;}
+            '0xC0000224' {"Password must change"; break;}
+            '0xC0000234' {"Account locked out"; break;}
+            '0x0' {"0x0"; break;}
+            default {"Other"; break;}
+        }
+      }
+    
+    #check failed logins
+    $seclogfile = "$loglocation\$secfile"
+
+    $failedlogons = Get-WinEvent -Oldest -FilterHashTable @{path="$seclogfile";Logname="Security"; ID=4625} 
+    $failedlogonstatus = @()
+
+    foreach ($failedlogon in $failedlogons) {
+        [hashtable]$fl = @{}
+       
+        $msgstring = $failedlogon.Message
+        $sourceaddr = (($msgstring).Split("`n") | Select-String -Pattern "(?<SourceAddr>^\s+Source Network Address:\s+(.+))").ToString().Replace("`tSource Network Address:`t","").Trim()
+        $acctnamearr = ($msgstring).Split("`n") | Select-String -Pattern "(?<AcctName>^\s+Account Name:\s+(.+))"
+        $fail1 = (($msgstring).Split("`n") | Select-String -Pattern "(?<AcctName>^\s+Status:\s+(.+))").ToString().Replace("`tStatus:`t","").Trim()
+        $fail2 = (($msgstring).Split("`n") | Select-String -Pattern "(?<AcctName>^\s+Sub Status:\s+(.+))").ToString().Replace("`tSub Status:`t","").Trim()
+        $facctname1,$facctname2 = $acctnamearr
+        $acct1 = ($facctname1.ToString()).Replace("`tAccount Name:`t`t","").Trim()
+        $acct2 = ($facctname2.ToString()).Replace("`tAccount Name:`t`t","").Trim()
+        if ($acctname -like "*-*") { $acctname = "LocalAcct: $acct1"} else { $acctname = $acct2}
+        if ($sourceaddr -like "*-*") {$sourceaddr = "localhost"}
+
+        $fl.SourceAddr = $sourceaddr
+        $fl.AcctName = $acctname
+        $fl.Time = $failedlogon.TimeCreated
+        $fl.FailStatus = Get-FailureReason -failurereason $fail1
+        $fl.FailSubStatus = Get-FailureReason -failurereason $fail2
+        
+        $FailedLogonStatus += New-Object -TypeName PSObject -Property $fl 
+
+    } Return $FailedLogonStatus
+
+}
+
+function Get-EvtLogsSummary {
+    param (
+        $date=(Get-Date -format MMddyyyy),
+        $loglocation = "c:\ksmc\scripts\maint\logs",
+        $appfile = "application-$date.evt",
+        $sysfile = "system-$date.evt"
+    )
+    $applogfile = "$loglocation\$appfile"
+    $syslogfile = "$loglocation\$sysfile"
+    $evtlogsummary = @()
+    [hashtable]$logs = @{}
+
+    #$currenttotals = Get-WinEvent -listlog * | Select-Object logname,RecordCount | Where-Object {$_.recordcount } | Format-Table -autosize
+    $applogs = Get-WinEvent -Oldest -FilterHashTable @{path="$applogfile";Logname="Application";Level=2,3}
+    $syslogs = Get-WinEvent -Oldest -FilterHashTable @{path="$syslogfile";Logname="System";Level=2,3}
+
+    $sysidcounts = $syslogs | Group-Object -Property ID -noelement | Sort-Object -Property Count -Descending    
+    $logs.sysid = $sysidcounts | Where-Object {$_.Count -ge 10}
+    $sids = ($logs.sysid | Select-Object *, @{ n="sidval"; e= { [int]($_.Name)}})
+    $sid = $sids.sidval
+
+    foreach ($id in $sid) {
+        $slogs = $syslogs | Select-Object -Property LogName,LevelDisplayName,ProviderName,ID,TimeCreated,Message  | Where-Object {$_.ID -eq $id}
+        $logs.sys += $slogs       
+    }
+    
+    $appidcounts = $applogs | Group-Object -Property ID -noelement | Sort-Object -Property Count -Descending
+    $logs.appid = $appidcounts | Where-Object {$_.Count -ge 10}
+    $aids = ($logs.appid | Select-Object *, @{ n="appval"; e= { [int]($_.Name)}})
+    $aid = $aids.appval
+
+    foreach ($id in $aid) {
+        $alogs = $applogs | Select-Object -Property LogName,LevelDisplayName,ProviderName,ID,TimeCreated,Message | Where-Object {$_.ID -eq $id}
+        $logs.app += $alogs
+    }
+
+    ##### summary export like maint sheet - still need to figure out
+    $appsumm = $logs.app | Group-Object -property ID | Sort-Object Count -Descending
+    $logs.appsumm = $appsumm
+    $syssumm = $logs.sys | Group-Object -property ID | Sort-Object Count -Descending
+    $logs.syssumm = $syssumm
+    
+
+    $evtlogsummary += New-Object -TypeName PSObject -Property $logs
+    
+    Return $evtlogsummary
+}
 
 # Get Scheduled tasks  -add on output for display
 Function Get-SchTasks {
@@ -335,6 +409,8 @@ function Get-Roles{
     if ($roles | Where-Object {$_.name -eq 'DNS'}) { $dnsrole = "Installed" } else { $dnsrole = "Not Installed" }
     if ($roles | Where-Object {$_.name -eq 'Print-Server'}) { $printrole = "Installed" } else { $printrole = "Not Installed" }
     if ($roles | Where-Object {$_.name -eq 'SMTP-Server'}) { $smtprole = "Installed" } else { $smtprole = "Not Installed" }
+
+
     [hashtable]$serverroles = @{} 
     $serverroles.ad = $adrole
     $serverroles.dhcp = $dhcprole
@@ -345,10 +421,26 @@ function Get-Roles{
     Return $serverroles
 }
 
+function Start-ADMaint {
+    param ($server = "$env:computername")
+    $scriptpath = "c:\ksmc\scripts\ADMaint.ps1"
+    $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ADMaint.ps1"
+      
+    if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
+    Invoke-WebRequest $scripturl -OutFile $scriptpath
+    $remoteCommand = { 
+        Set-Location "c:\ksmc\scripts"
+        .\ADMaint.ps1
+    }
+    Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
+    $admaint = "AD Maintenance is Complete"
+    Return $admaint
+}
+
 #Data Gathering and Report Building
 function Start-Maintenance{
     [Cmdletbinding()]
-    param([string]$Computername,[string]$savelogs)
+    param([string]$Computername)
     $date = Get-Date
     $maintpath = "c:\ksmc\scripts\maint"
     $logpath = "$maintpath\logs"
@@ -369,14 +461,6 @@ function Start-Maintenance{
         $PSMaj = $PSVerSummary.PSMaj
         $services = Get-Service
         $os = (Get-CimInstance win32_operatingsystem -computername $Computer).Caption
-        if ($os -like "*Server*") { 
-            $roles = Get-Roles
-            if ($roles.ad -eq "Installed") {
-                ## RUN AD MAINT ##
-            }
-        } else { 
-            $roles = "not server OS, skipping roles"
-        }
         $runningsvc = $services | Where-Object {$_.Status -eq "running"}
         $stoppedsvc = $services | Where-Object {$_.Status -eq "stopped"}
         $autosvc = $services | Where-Object {$_.StartType -eq "automatic" -and $_.Status -eq "stopped"} | Select-Object @{Name='Service Name'; Expression={$_.DisplayName}}, Status
@@ -401,6 +485,8 @@ function Start-Maintenance{
         $NTPSummary = Get-NTPConfig
         $SchTaskSummary = Get-SchTasks -PSVer $PSMaj
         $lastboot = Get-SrvUptime -PSVer $PSMaj
+        $failedlogons = Get-FailedLogons
+        $evtlogsummary = Get-EvtLogsSummary
         Write-Output "******Maintenance Report******"
         Write-Output "Current Date: $date"
         Write-Output "System Name:  $env:COMPUTERNAME"
@@ -417,6 +503,23 @@ function Start-Maintenance{
         $UptimeDisplay = "Uptime: " + $Uptime.Days + " days, " + $Uptime.Hours + " hours, " + $Uptime.Minutes + " minutes"
         if ($uptime.Days -ge "30") { Write-Output "$uptimedisplay ***NEEDS REBOOT***"  } Else {Write-Output "$uptimedisplay" }
         Write-Output `n
+        if ($os -like "*Server*") { 
+            $roles = Get-Roles
+            if ($roles.ad -eq "Installed") {
+                Write-Output "ADDS Installed, checking for PDCe"
+                $domainFQDN = "$env:USERDNSDOMAIN"
+                $context = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$domainFQDN)
+                $domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($context)
+                $pdce = $domain.pdcRoleOwner
+                if ($pdce -like "$env:ComputerName.$domainFQDN") {
+                    Write-Output "Server is PDCe, Running AD Maintenance"
+                    Start-ADMaint
+                }
+            }
+        } else { 
+            $roles = @{}
+            $roles.roles = "not server OS, skipping roles"
+        }
         Write-Output ":::Server Roles:::"
         $roles.roles
         Write-Output `n
@@ -447,31 +550,32 @@ function Start-Maintenance{
         Write-Output `n
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
-        if (($savelogs -eq "y") -or ($savelogs -eq "yes")) {
-            Write-Output "Saving event logs to $logpath"
-            Get-EventArchive | Out-Null
-        } elseif (($savelogs -eq "n") -or ($savelogs -eq "no")) {
-            Write-Output "Skipping logs"
-        } else {
-            Write-Output "Unknown response *$savelogs*, skipping logs"
-        }
+        Write-Output "Saving event logs to $logpath"
+        Get-EventArchive | Out-Null
+        Write-Output `n
+        Write-Output ":::Failed Logons Summary:::"
+        $failedlogons | Select-Object -First 50 | Format-Table
+        Write-Output `n
+        Write-Output ":::System - Event Log Summary"
+        $evtlogsummary.syssumm | Format-Table
+        Write-Output ":::Application - Event Log Summary"
+        $evtlogsummary.appsumm | Format-Table
+        
         
         Write-Output ("################################################################################################")
     ) *>&1 >> $maintlog
-    Write-Output ("Maint Report saved to $maintlog")
+    Write-Output ("Maint Report saved to $maintlog") 
+    
 }
 
-Start-Maintenance -savelogs $savelogs
+Start-Maintenance
 
 
 ## addtional logs
 ## device manager
 ## patch status
-## sys info
-
+## sys info - ?
 ## warranty check - skip if virt.
 ## LT / SC installation status, last check in
 ## LT Integration 
-## pull script from github (self updating)
-## email html report to provided email list. SMTP Settings?
 ## check for services running as "service accounts"
