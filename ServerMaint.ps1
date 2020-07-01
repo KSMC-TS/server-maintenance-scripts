@@ -431,7 +431,7 @@ function Start-ADMaint {
     $remoteCommand = { 
         powershell.exe -Command "& c:\ksmc\scripts\ADMaint.ps1"
     }
-    Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
+    Invoke-Command -ScriptBlock $remoteCommand
     $admaint = "AD Maintenance is Complete"
     Return $admaint
 }
