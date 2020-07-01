@@ -1,3 +1,5 @@
+param ($listpath = "C:\ksmc\scripts\servers.txt")
+
 <#
 function DownloadFilesFromRepo {
     Param(
@@ -38,7 +40,6 @@ function DownloadFilesFromRepo {
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
-$listpath = "C:\ksmc\scripts\servers.txt"
 
 Write-Host "Recreating Script from Latest"
 if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
