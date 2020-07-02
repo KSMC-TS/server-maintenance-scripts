@@ -147,21 +147,27 @@ function Start-ADMaint{
         Write-Output "*** User Audit ***"
         Write-Output "Users that have never logged-on" #future: if never logged-on in - output as report / disable, protect certain objects from deletion
         $useraudit.NeverLogon | Format-Table
-        Write-Output "Users that have exipred passwords" #future: output as report
+        Write-Output `n
+        Write-Output "Users that have expired passwords" #future: output as report
         $useraudit.passwordexpired | Format-Table
+        Write-Output `n
         Write-Output "Users that haven't logged on in 3+ months" #future: if not logged-on in 3(?)+ months - disable
         $useraudit.LogonMinus3Mo | Format-Table
+        Write-Output `n
         Write-Output "Users that have non-expiring passwords" #future: output as report
         $useraudit.passneverexpire | Format-Table
+        Write-Output `n
         Write-Output "Disabled Users" #future: if disabled 6(?)+ months - remove
         $useraudit.disabled | Format-Table
         Write-Output `n
         Write-Output "*** Computer Audit ***"
-        Write-Output "Users that have never logged-on" #future: if never logged-on in - output as report / disable, protect certain objects from deletion
+        Write-Output "Computers that have never logged-on" #future: if never logged-on in - output as report / disable, protect certain objects from deletion
         $compaudit.NeverLogon | Format-Table
-        Write-Output "Users that haven't logged on in 3+ months" #future: if not logged-on in 3(?)+ months - disable
+        Write-Output `n
+        Write-Output "Computers that haven't logged on in 3+ months" #future: if not logged-on in 3(?)+ months - disable
         $compaudit.LogonMinus3Mo | Format-Table
-        Write-Output "Disabled Users" #future: if disabled 6(?)+ months - remove
+        Write-Output `n
+        Write-Output "Disabled Computers" #future: if disabled 6(?)+ months - remove
         $compaudit.disabled | Format-Table
         Write-Output `n
         Write-Output "*** DCDiag ***"
