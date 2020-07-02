@@ -1,4 +1,17 @@
-param ($listpath = "C:\ksmc\scripts\servers.txt")
+param ($listpath = "C:\ksmc\scripts\servers.txt",[switch]$InstallPS7)
+
+function Install-PS7 {
+    $listpath = "c:\ksmc\scripts\servers.txt"
+    $computers = Get-Content $listpath
+    ForEach ($computer in $computers) {
+        Write-Output "Deploying PWSH7 on $computer"
+        $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"} 
+        if (!($pwsh -eq $true)) {
+            Invoke-Command -ComputerName $computer {iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI -Quiet"}
+        }
+    }
+
+}
 
 <#
 function DownloadFilesFromRepo {
@@ -37,6 +50,12 @@ function DownloadFilesFromRepo {
         }
     }
 #>
+if ($InstallPS7) { 
+    Write-Host "Deploying Powershell 7"
+    Install-PS7
+    Start-Sleep -seconds 30
+}
+
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
@@ -73,10 +92,18 @@ foreach ($server in $servers) {
         New-Item -ItemType Directory -Path $remotepath
         copy-item $scriptpath $remotescript -Force
         Write-Verbose "($remotepath) was created" -Verbose 
-    }    
-    $remoteCommand = { 
-        Set-Location "c:\ksmc\scripts"
-        .\ServerMaint.ps1
+    }
+    $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"}  
+    if ($pwsh -eq $true) {
+        $remoteCommand = { 
+            pwsh.exe -command "& c:\ksmc\scripts\ServerMaint.ps1"
+        }
+
+    } else {
+        $remoteCommand = { 
+            powershell.exe -command "& c:\ksmc\scripts\ServerMaint.ps1"
+        }
+
     }
     Write-Host "Running Maintenance on $Server"
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
@@ -90,7 +117,3 @@ foreach ($server in $servers) {
 Write-Host "Creating Master Report..."
 Get-Content $reportspath\*maint*$date*.log | Set-Content $reportspath\maintreport-all-$date.log
 Write-Host "Script Complete"
-
-
-
-## detect PS v7 and runas
