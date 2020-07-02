@@ -1,7 +1,7 @@
 param (
-        $listpath = "C:\ksmc\scripts\servers.txt",
+        $listpath = "C:\ksmc\scripts\servers.txt", ## can be located anywhere
         [switch]$DeployPSCore,
-        $basepath = "C:\ksmc\scripts"
+        $basepath = "c:\ksmc\scripts" ## must be on c:\
         )
 
     function Deploy-PSCore {
