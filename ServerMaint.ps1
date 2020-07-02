@@ -428,8 +428,17 @@ function Start-ADMaint {
       
     if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
     Invoke-WebRequest $scripturl -OutFile $scriptpath
-    $remoteCommand = { 
-        powershell.exe -Command "& $basepath\ADMaint.ps1 -basepath $basepath"
+    $pwsh = Test-Path "$env:ProgramFiles\PowerShell\*"  
+    if ($pwsh -eq $true) {
+        Write-Output "Running in Powershell Core (6.0+)"
+        $remoteCommand = { 
+            pwsh.exe -command "& $basepath\ADMaint.ps1 -basepath $basepath"
+        }
+    } else {
+        Write-Output "Running in Powershell (up to 5.1)"
+        $remoteCommand = { 
+            powershell.exe -command "& $basepath\ADMaint.ps1 -basepath $basepath"
+        }
     }
     Write-Verbose "Running AD Maintenance"
     Invoke-Command -ScriptBlock $remoteCommand
@@ -440,7 +449,7 @@ function Start-ADMaint {
 #Data Gathering and Report Building
 function Start-Maintenance{
     [Cmdletbinding()]
-    param($basepath="")
+    param($basepath)
     $date = Get-Date
     $maintpath = "$basepath\maint"
     $logpath = "$maintpath\logs"

@@ -1,3 +1,27 @@
+    <#
+
+    .DESCRIPTION
+    Deploy PowerShell Core:latest from Microsoft
+
+    .PARAMETER listpath
+    List of computers to deploy to - default is 'c:\ksmc\scripts\servers.txt'
+    Create .txt file, list one hostname on each line to run against
+
+    .PARAMETER basepath
+    Base location for Output folder - default is 'c:\ksmc\scripts'
+
+    .PARAMETER DeployPSCore
+    Optional parameter to deploy the latest version (currently 7.0.2) of PowershellCore to the same list from 'listpath'
+    If servers are running PSCore(6.0+), Maintenance Scripts will run in PSCore [pwsh.exe] instead of Powershell [powershell.exe]
+
+    .EXAMPLE
+    Recommended running method: Open ISE as admin, open script and run
+
+    .NOTES
+    
+
+    #>
+
 param (
         $listpath = "C:\ksmc\scripts\servers.txt", ## can be located anywhere
         [switch]$DeployPSCore,
