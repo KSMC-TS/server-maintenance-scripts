@@ -1,4 +1,4 @@
-param ()
+param([Parameter(Mandatory=$true)]$basepath)
 
 function Get-ForestInfo {
     $Forest = [system.directoryservices.activedirectory.Forest]::GetCurrentForest() 
@@ -105,12 +105,14 @@ function Get-DCdiag {
 
 function Start-ADMaint{
     [Cmdletbinding()]
-    param([string]$Computername)
+    param([string]$Computername,
+    $basepath
+    )
     Import-Module Activedirectory
     $date = Get-Date
-    $maintpath = "c:\ksmc\scripts\maint"
+    $maintpath = "$basepath\maint"
     $logpath = "$maintpath\logs"
-    $maintfile = "AD-maintenance_report-$env:USERDOMAIN-"+(Get-Date -Format "MMddyyyy")+".log"
+    $maintfile = "maint_report-AD-$env:USERDOMAIN-"+(Get-Date -Format "MMddyyyy")+".log"
     $maintlog = "$maintpath\$maintfile"
     $pathexists = Test-Path $logpath
     if ($pathexists -eq $True) { 
@@ -151,7 +153,7 @@ function Start-ADMaint{
     
 }
 
-Start-ADMaint
+Start-ADMaint -basepath $basepath
 
 
 

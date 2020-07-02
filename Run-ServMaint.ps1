@@ -65,15 +65,15 @@ foreach ($server in $servers) {
     }
     $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\*"}  
     if ($pwsh -eq $true) {
+        Write-Output "Running in Powershell Core (6.0+)"
         $remoteCommand = { 
             pwsh.exe -command "& $using:scriptpath -basepath $using:basepath"
         }
-
     } else {
+        Write-Output "Running in Powershell (up to 5.1)"
         $remoteCommand = { 
             powershell.exe -command "& $using:scriptpath -basepath $using:basepath"
         }
-
     }
     Write-Host "Running Maintenance on $Server"
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand

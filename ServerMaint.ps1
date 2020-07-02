@@ -1,4 +1,4 @@
-param($basepath="")
+param([Parameter(Mandatory=$true)]$basepath)
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -68,7 +68,7 @@ Function Get-EventArchive{
     Param(
         $Computername = $ENV:COMPUTERNAME,
         [array]$EventLogs = @("application","security","system"),
-        $BackupFolder = "$logpath"
+        $BackupFolder
     )        
     Foreach ( $log in $EventLogs ) {
         If(!( Test-Path $BackupFolder )){ 
@@ -422,14 +422,14 @@ function Get-Roles{
 }
 
 function Start-ADMaint {
-    param ($basepath="")
+    param([Parameter(Mandatory=$true)]$basepath)
     $scriptpath = "$basepath\ADMaint.ps1"
     $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/main/ADMaint.ps1"
       
     if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
     Invoke-WebRequest $scripturl -OutFile $scriptpath
     $remoteCommand = { 
-        powershell.exe -Command "& $using:basepath\ADMaint.ps1"
+        powershell.exe -Command "& $basepath\ADMaint.ps1 -basepath $basepath"
     }
     Write-Verbose "Running AD Maintenance"
     Invoke-Command -ScriptBlock $remoteCommand
@@ -444,7 +444,7 @@ function Start-Maintenance{
     $date = Get-Date
     $maintpath = "$basepath\maint"
     $logpath = "$maintpath\logs"
-    $maintfile = "maintenance_report-$env:COMPUTERNAME-"+(Get-Date -Format "MMddyyyy")+".log"
+    $maintfile = "maint_report-$env:COMPUTERNAME-"+(Get-Date -Format "MMddyyyy")+".log"
     $maintlog = "$maintpath\$maintfile"
     $pathexists = Test-Path $logpath
     if ($pathexists -eq $True) { 
@@ -551,7 +551,7 @@ function Start-Maintenance{
         Write-Output ":::Scheduled Tasks Results:::"
         $SchTaskSummary | Format-Table
         Write-Output "Saving event logs to $logpath, sleeping for 30s"
-        Get-EventArchive | Out-Null
+        Get-EventArchive -backupfolder $logpath
         Start-Sleep -Seconds 30
         Write-Output `n
         Write-Output ":::Failed Logons Summary:::"
