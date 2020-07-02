@@ -135,13 +135,31 @@ function Start-ADMaint{
         Write-Output "*** Forest / Domains info ***"
         $forestinfo
         Write-Output "*** Replication Status ***"
-        $repstatus.repsum
+        $replstatus.repsum
+        Write-Output `n
         Write-Output "*** FRS Status ***"
         $frsstate
+        Write-Output `n
         Write-Output "*** User Audit ***"
-        $useraudit
+        Write-Output "Users that have never logged-on" #future: if never logged-on in - output as report / disable, protect certain objects from deletion
+        $useraudit.NeverLogon | Format-Table
+        Write-Output "Users that have exipred passwords" #future: output as report
+        $useraudit.passwordexpired | Format-Table
+        Write-Output "Users that haven't logged on in 3+ months" #future: if not logged-on in 3(?)+ months - disable
+        $useraudit.LogonMinus3Mo | Format-Table
+        Write-Output "Users that have non-expiring passwords" #future: output as report
+        $useraudit.passneverexpire | Format-Table
+        Write-Output "Disabled Users" #future: if disabled 6(?)+ months - remove
+        $useraudit.disabled | Format-Table
+        Write-Output `n
         Write-Output "*** Computer Audit ***"
-        $compaudit
+        Write-Output "Users that have never logged-on" #future: if never logged-on in - output as report / disable, protect certain objects from deletion
+        $compaudit.NeverLogon | Format-Table
+        Write-Output "Users that haven't logged on in 3+ months" #future: if not logged-on in 3(?)+ months - disable
+        $compaudit.LogonMinus3Mo | Format-Table
+        Write-Output "Disabled Users" #future: if disabled 6(?)+ months - remove
+        $compaudit.disabled | Format-Table
+        Write-Output `n
         Write-Output "*** DCDiag ***"
         $dcdiag
 
