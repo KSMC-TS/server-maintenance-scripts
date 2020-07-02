@@ -424,7 +424,7 @@ function Get-Roles{
 function Start-ADMaint {
     param ($server = "$env:computername")
     $scriptpath = "c:\ksmc\scripts\ADMaint.ps1"
-    $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ADMaint.ps1"
+    $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/main/ADMaint.ps1"
       
     if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
     Invoke-WebRequest $scripturl -OutFile $scriptpath

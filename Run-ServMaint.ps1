@@ -1,11 +1,11 @@
 param ($listpath = "C:\ksmc\scripts\servers.txt",[switch]$InstallPS7)
 
 function Install-PS7 {
-    $listpath = "c:\ksmc\scripts\servers.txt"
+    param ($listpath = "c:\ksmc\scripts\servers.txt")
     $computers = Get-Content $listpath
     ForEach ($computer in $computers) {
         Write-Output "Deploying PWSH7 on $computer"
-        $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"} 
+        $pwsh = Invoke-Command -Computername $computer -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"} 
         if (!($pwsh -eq $true)) {
             Invoke-Command -ComputerName $computer {iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI -Quiet"}
         }
@@ -58,7 +58,7 @@ if ($InstallPS7) {
 
 $reportspath = "c:\ksmc\scripts\maint\reports"
 $scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
-$scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/master/ServerMaint.ps1"
+$scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/main/ServerMaint.ps1"
 
 Write-Host "Recreating Script from Latest"
 if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
