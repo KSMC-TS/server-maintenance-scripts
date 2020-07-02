@@ -5,8 +5,9 @@
 
 ### **Run-ServMaint.ps1**
 - Runs Server Maintenance against list of servers
-    - *args:* listpath - location of servers.txt 
-    - (default path: 'c:\ksmc\scripts')
+    - *args:* 
+        - listpath - location of servers.txt (default path: 'c:\ksmc\scripts')
+        - DeployPSCore - Deploys PowerShellCore:latest before running maint
     - run as administrator
 - Downloads updated copy of ServerMaint.ps1 from GitHub and copies to target machines, runs on each machine
 - Copies Maintenance Reports back to server you run it on, creates master report

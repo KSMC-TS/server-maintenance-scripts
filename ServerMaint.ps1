@@ -1,4 +1,4 @@
-param()
+param($basepath="")
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -83,7 +83,7 @@ Function Get-EventArchive{
 function Get-FailedLogons {
     param (
         $date = (Get-Date -format "MMddyyyy"),
-        $loglocation = "c:\ksmc\scripts\maint\logs",
+        $loglocation = "",
         $secfile = "security-$date.evt"
     )
     function Get-FailureReason {
@@ -142,7 +142,7 @@ function Get-FailedLogons {
 function Get-EvtLogsSummary {
     param (
         $date=(Get-Date -format MMddyyyy),
-        $loglocation = "c:\ksmc\scripts\maint\logs",
+        $loglocation = "",
         $appfile = "application-$date.evt",
         $sysfile = "system-$date.evt"
     )
@@ -422,14 +422,14 @@ function Get-Roles{
 }
 
 function Start-ADMaint {
-    param ($server = "$env:computername")
-    $scriptpath = "c:\ksmc\scripts\ADMaint.ps1"
+    param ($basepath="")
+    $scriptpath = "$basepath\ADMaint.ps1"
     $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/main/ADMaint.ps1"
       
     if ((Test-Path $scriptpath) -eq $True) { Remove-Item $scriptpath -force }
     Invoke-WebRequest $scripturl -OutFile $scriptpath
     $remoteCommand = { 
-        powershell.exe -Command "& c:\ksmc\scripts\ADMaint.ps1"
+        powershell.exe -Command "& $using:basepath\ADMaint.ps1"
     }
     Write-Verbose "Running AD Maintenance"
     Invoke-Command -ScriptBlock $remoteCommand
@@ -440,9 +440,9 @@ function Start-ADMaint {
 #Data Gathering and Report Building
 function Start-Maintenance{
     [Cmdletbinding()]
-    param([string]$Computername)
+    param($basepath="")
     $date = Get-Date
-    $maintpath = "c:\ksmc\scripts\maint"
+    $maintpath = "$basepath\maint"
     $logpath = "$maintpath\logs"
     $maintfile = "maintenance_report-$env:COMPUTERNAME-"+(Get-Date -Format "MMddyyyy")+".log"
     $maintlog = "$maintpath\$maintfile"
@@ -485,8 +485,8 @@ function Start-Maintenance{
         $NTPSummary = Get-NTPConfig
         $SchTaskSummary = Get-SchTasks -PSVer $PSMaj
         $lastboot = Get-SrvUptime -PSVer $PSMaj
-        $failedlogons = Get-FailedLogons
-        $evtlogsummary = Get-EvtLogsSummary
+        $failedlogons = Get-FailedLogons -loglocation $logpath
+        $evtlogsummary = Get-EvtLogsSummary -loglocation $logpath
         Write-Output "******Maintenance Report******"
         Write-Output "Current Date: $date"
         Write-Output "System Name:  $env:COMPUTERNAME"
@@ -513,7 +513,7 @@ function Start-Maintenance{
                 $pdce = $domain.pdcRoleOwner
                 if ($pdce -like "$env:ComputerName.$domainFQDN") {
                     Write-Output "Server is PDCe, Running AD Maintenance"
-                    Start-ADMaint
+                    Start-ADMaint -basepath $basepath
                 }
             }
         } else { 
@@ -569,7 +569,7 @@ function Start-Maintenance{
     
 }
 
-Start-Maintenance
+Start-Maintenance -basepath $basepath
 
 
 ## addtional logs

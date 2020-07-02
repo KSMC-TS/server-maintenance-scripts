@@ -1,17 +1,21 @@
-param ($listpath = "C:\ksmc\scripts\servers.txt",[switch]$InstallPS7)
+param (
+        $listpath = "C:\ksmc\scripts\servers.txt",
+        [switch]$DeployPSCore,
+        $basepath = "C:\ksmc\scripts"
+        )
 
-function Install-PS7 {
-    param ($listpath = "c:\ksmc\scripts\servers.txt")
-    $computers = Get-Content $listpath
-    ForEach ($computer in $computers) {
-        Write-Output "Deploying PWSH7 on $computer"
-        $pwsh = Invoke-Command -Computername $computer -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"} 
-        if (!($pwsh -eq $true)) {
+    function Deploy-PSCore {
+        param (
+            [Parameter(Mandatory=$true,
+            ValueFromPipeline=$true)]
+            [String[]] $listpath
+            )
+        $computers = Get-Content $listpath
+        ForEach ($computer in $computers) {
+            Write-Output "Deploying PowerShellCore:Latest on $computer"
             Invoke-Command -ComputerName $computer {iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI -Quiet"}
         }
     }
-
-}
 
 <#
 function DownloadFilesFromRepo {
@@ -50,14 +54,15 @@ function DownloadFilesFromRepo {
         }
     }
 #>
-if ($InstallPS7) { 
-    Write-Host "Deploying Powershell 7"
-    Install-PS7
+if ($DeployPSCore) { 
+    Write-Host "Deploying PowershellCore:Latest"
+    Deploy-PSCore -listpath $listpath
     Start-Sleep -seconds 30
 }
 
-$reportspath = "c:\ksmc\scripts\maint\reports"
-$scriptpath = "c:\ksmc\scripts\ServerMaint.ps1"
+$dirpath = $basepath.Substring(3) ## base path, removing c:\
+$reportspath = "$basepath\maint\reports"
+$scriptpath = "$basepath\ServerMaint.ps1"
 $scripturl = "https://raw.githubusercontent.com/KSMC-TS/server-maintenance-scripts/main/ServerMaint.ps1"
 
 Write-Host "Recreating Script from Latest"
@@ -74,8 +79,9 @@ if ($pathexists -eq $True) {
 
 $servers = Get-Content $listpath 
 
-foreach ($server in $servers) {   
-    $remotepath = "\\$server\c$\ksmc\scripts"
+foreach ($server in $servers) { 
+    $remotebase = "\\$server\c$"  
+    $remotepath = "$remotebase\$dirpath"
     $remotescript = "$remotepath\ServerMaint.ps1"
     $scriptexists = Test-Path $remotescript
     if ($scriptexists -eq $True) { 
@@ -93,22 +99,22 @@ foreach ($server in $servers) {
         copy-item $scriptpath $remotescript -Force
         Write-Verbose "($remotepath) was created" -Verbose 
     }
-    $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\7"}  
+    $pwsh = Invoke-Command -Computername $server -ScriptBlock {Test-Path "$env:ProgramFiles\PowerShell\*"}  
     if ($pwsh -eq $true) {
         $remoteCommand = { 
-            pwsh.exe -command "& c:\ksmc\scripts\ServerMaint.ps1"
+            pwsh.exe -command "& $using:scriptpath -basepath $basepath"
         }
 
     } else {
         $remoteCommand = { 
-            powershell.exe -command "& c:\ksmc\scripts\ServerMaint.ps1"
+            powershell.exe -command "& $using:scriptpath -basepath $basepath"
         }
 
     }
     Write-Host "Running Maintenance on $Server"
     Invoke-Command -ComputerName $server -ScriptBlock $remoteCommand
     [string]$date = (Get-Date -Format "MMddyyyy")
-    $maintlog = (Get-ChildItem "\\$server\c$\ksmc\scripts\maint\*maint*$date*.log" )
+    $maintlog = (Get-ChildItem "$remotepath\maint\*maint*$date*.log" )
     Write-Host "Copying Report $maintlog"
     Copy-Item $maintlog $reportspath -Force 
 
