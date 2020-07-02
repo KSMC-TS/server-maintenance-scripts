@@ -79,6 +79,11 @@ function Get-Users {
     $useraudit.passwordexpired = Get-ADUser -Filter {(Enabled -eq $true) -and (PasswordExpired -eq $true)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
     $useraudit.Passneverexpire = Get-ADUser -Filter {(Enabled -eq $true) -and (PasswordNeverExpires -eq $true)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
     $useraudit.disabled = Get-ADUser -Filter {(Enabled -eq $false)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
+    if (!($useraudit.NeverLogon)) { $useraudit.NeverLogon = "none to report" }
+    if (!($useraudit.LogonMinus3Mo)) { $useraudit.LogonMinus3Mo = "none to report" }
+    if (!($useraudit.passwordexpired)) { $useraudit.passwordexpired = "none to report" }
+    if (!($useraudit.Passneverexpire)) { $useraudit.Passneverexpire = "none to report" }
+    if (!($useraudit.disabled)) { $useraudit.disabled = "none to report" }
     Return $useraudit
 }
 
@@ -89,20 +94,27 @@ function Get-Computers {
     $compaudit.NeverLogon = Get-ADComputer -Filter {(-not(LastLogonDate -like "*")) -and (Enabled -eq $true)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
     $compaudit.LogonMinus3Mo = Get-ADComputer -Filter {(Enabled -eq $true) -and (LastLogonDate -le $dateminus3mo)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
     $compaudit.disabled = Get-ADComputer -Filter {(Enabled -eq $false)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
+    if (!($compaudit.NeverLogon)) { $compaudit.NeverLogon = "none to report" }
+    if (!($compaudit.disabled)) { $compaudit.disabled = "none to report" }
+    if (!($compaudit.LogonMinus3Mo)) { $compaudit.LogonMinus3Mo = "none to report" }
     Return $compaudit
 }
 
 function Get-ReplStatus {
     $repstatus = @{}
-    $repstatus.repsum = repadmin /replsummary
-    $repstatus.queue = repadmin /queue
-    $repstatus.showrepl = repadmin /showrepl
+    $repsum = repadmin /replsummary
+    $repqueue = repadmin /queue
+    $showrepl = repadmin /showrepl
+    $repstatus.repsum = $repsum.Trim()
+    $repstatus.queue = $repqueue.Trim()
+    $repstatus.showrepl = $showrepl.Trim()
     Return $repstatus
 
 }
 
 function Get-DCdiag {
     $dcdiag = dcdiag /q
+    if (!($dcdiag)) { $dcdiag = "no errors to report" }
     Return $dcdiag
 }
 
