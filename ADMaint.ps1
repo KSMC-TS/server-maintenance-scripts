@@ -71,9 +71,11 @@ function Get-FRSState {
 
 
 function Get-Users {
+    $date=Get-Date
+    $dateminus3mo = $date.AddMonths(-3)
     $useraudit = @{}
     $useraudit.NeverLogon = Get-ADUser -Filter {(-not(LastLogonDate -like "*")) -and (Enabled -eq $true)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
-    $useraudit.LogonMinus3Mo = Get-ADUser -Filter {(Enabled -eq $true) -and (LastLogondate -lt $date)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
+    $useraudit.LogonMinus3Mo = Get-ADUser -Filter {(Enabled -eq $true) -and (LastLogondate -le $dateminus3mo)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
     $useraudit.passwordexpired = Get-ADUser -Filter {(Enabled -eq $true) -and (PasswordExpired -eq $true)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
     $useraudit.Passneverexpire = Get-ADUser -Filter {(Enabled -eq $true) -and (PasswordNeverExpires -eq $true)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
     $useraudit.disabled = Get-ADUser -Filter {(Enabled -eq $false)} -Properties SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword | Select-Object SamAccountName,LastLogonDate,PasswordExpired,PasswordLastSet,PasswordNeverExpires,CannotChangePassword
@@ -81,9 +83,11 @@ function Get-Users {
 }
 
 function Get-Computers {
+    $date=Get-Date
+    $dateminus3mo = $date.AddMonths(-3)
     $compaudit = @{}
     $compaudit.NeverLogon = Get-ADComputer -Filter {(-not(LastLogonDate -like "*")) -and (Enabled -eq $true)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
-    $compaudit.LogonMinus3Mo = Get-ADComputer -Filter {(Enabled -eq $true) -and (LastLogonDate -lt $date)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
+    $compaudit.LogonMinus3Mo = Get-ADComputer -Filter {(Enabled -eq $true) -and (LastLogonDate -le $dateminus3mo)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
     $compaudit.disabled = Get-ADComputer -Filter {(Enabled -eq $false)} -Properties Name,LastLogonDate | Select-Object Name,LastLogonDate | Sort-Object LastLogonDate
     Return $compaudit
 }
