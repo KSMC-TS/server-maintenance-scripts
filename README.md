@@ -2,8 +2,9 @@
 
 ## Data gathering for server maintenance tasks
 
+**NEW: Run as Automate Script, Report sent directly to Client Teams Maintenance Channel**
 
-### **Run-ServMaint.ps1**
+### **Run-ServMaint.ps1** - optional, for running outside of Automate
 - Runs Server Maintenance against list of servers
     - *args:* 
         - listpath - location of servers.txt (default path: 'c:\ksmc\scripts')
@@ -82,9 +83,14 @@
         - Runs all functions and creates report
 
 
+### **How To Run - Automate Script**
+1. Navigate to Client Servers in Automate Control Center or Web Client. Select Server(s) to run against
+2. Run Script under "Maintenance > Monthly Server Maintenance" 
+3. Report will be emailed to email address of tech that initiated script, as well as Client's 'Maintenance' channel in Teams
 
 
-### **How To Run**
+
+### **How To Run - 'Run-ServMaint.ps1'** 
 1. Download copy of "Run-ServMaint.ps1" to management machine -> put in "c:\ksmc\scripts"
 2. Create "servers.txt" in "c:\ksmc\scripts" on management machine, list all hostnames in the file, one on each line
 3. Run "Run-ServMaint.ps1" as admin
