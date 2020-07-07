@@ -1,11 +1,11 @@
 param([Parameter(Mandatory=$true)]$basepath)
 
 #Checks if the session is being run as Admin (Some of the values won't populate without it)
-If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
-    $arguments = "& '" + $myinvocation.mycommand.definition + "'"
-    Start-Process powershell -Verb runAs -ArgumentList $arguments
-    Break
-}
+#If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
+#    $arguments = "& '" + $myinvocation.mycommand.definition + "'"
+#    Start-Process powershell -Verb runAs -ArgumentList $arguments
+#    Break
+#}
 
 function Get-HWInfo {
     param ($computername = $env:COMPUTERNAME,[string]$PSVer)
