@@ -451,9 +451,11 @@ function Start-Maintenance{
     [Cmdletbinding()]
     param($basepath)
     $date = Get-Date
+    $datef = Get-Date -Format "MMddyyyy"
     $maintpath = "$basepath\maint"
     $logpath = "$maintpath\logs"
     $maintfile = "maint_report-$env:COMPUTERNAME-"+(Get-Date -Format "MMddyyyy")+".log"
+    $maintallfile = "maint_all-$env:COMPUTERNAME-"+(Get-Date -Format "MMddyyyy")+".log"
     $maintlog = "$maintpath\$maintfile"
     $pathexists = Test-Path $logpath
     if ($pathexists -eq $True) { 
@@ -576,6 +578,10 @@ function Start-Maintenance{
     ) *>&1 >> $maintlog
     Write-Output ("Maint Report saved to $maintlog") 
     
+
+    Get-Content "$maintpath\maint_report*$datef.log" | Set-Content $maintpath\$maintallfile
+
+
 }
 
 Start-Maintenance -basepath $basepath
