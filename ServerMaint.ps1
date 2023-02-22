@@ -76,7 +76,8 @@ Function Get-EventArchive{
         }
         $eventlog="$BackupFolder\$log" + "-" + (Get-Date -Format "MMddyyyy") + ".evt"
         (Get-CimInstance win32_nteventlogfile -ComputerName $computername | Where-Object {$_.logfilename -eq "$log"}) | Invoke-CimMethod -MethodName backupeventlog -Arguments @{ArchiveFileName=$eventlog}            
-        [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog("$log")            
+        [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog("$log")
+        Start-Sleep -Seconds 30            
     }          
 }
 
