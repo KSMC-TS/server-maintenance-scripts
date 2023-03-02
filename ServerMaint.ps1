@@ -519,7 +519,7 @@ function Start-Maintenance{
             $roles = Get-Roles
             if ($roles.ad -eq "Installed") {
                 Write-Output "ADDS Installed, checking for PDCe"
-                $domainFQDN = "$env:USERDNSDOMAIN"
+                $domainFQDN = (Get-AdDomain).dnsroot
                 $context = new-object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$domainFQDN)
                 $domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($context)
                 $pdce = $domain.pdcRoleOwner
