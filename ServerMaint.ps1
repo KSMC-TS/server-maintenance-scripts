@@ -497,8 +497,8 @@ function Start-Maintenance{
         $NTPSummary = Get-NTPConfig
         $SchTaskSummary = Get-SchTasks -PSVer $PSMaj
         $lastboot = Get-SrvUptime -PSVer $PSMaj
-        $failedlogons = Get-FailedLogons -loglocation $logpath
-        $evtlogsummary = Get-EvtLogsSummary -loglocation $logpath
+        # $failedlogons = Get-FailedLogons -loglocation $logpath
+        # $evtlogsummary = Get-EvtLogsSummary -loglocation $logpath
         Write-Output "******Maintenance Report******"
         Write-Output "Current Date: $date"
         Write-Output "System Name:  $env:COMPUTERNAME"
@@ -567,9 +567,11 @@ function Start-Maintenance{
         Start-Sleep -Seconds 30
         Write-Output `n
         Write-Output ":::Failed Logons Summary:::"
+        $failedlogons = Get-FailedLogons -loglocation $logpath # added from line 500 - order of operations issue
         $failedlogons | Select-Object -First 50 | Format-Table
         Write-Output `n
         Write-Output ":::System - Event Log Summary"
+        $evtlogsummary = Get-EvtLogsSummary -loglocation $logpath # added from line 501 - order of operations issue
         $evtlogsummary.syssumm | Format-Table
         Write-Output ":::Application - Event Log Summary"
         $evtlogsummary.appsumm | Format-Table
